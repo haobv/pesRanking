@@ -561,6 +561,9 @@
     updateRanking();
     updatePlayerDropdowns();
     checkAdminAccess(); // Kiểm tra quyền admin khi tải trang
+    
+    // Xử lý reload hoặc thay đổi URL
+    window.addEventListener('popstate', checkAdminAccess);
   </script>
 </body>
 </html>
