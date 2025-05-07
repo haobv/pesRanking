@@ -191,7 +191,7 @@
 
     .action-buttons {
       flex: 0 0 20%;
-      display: flex;
+      display: none;
       flex-direction: column;
       justify-content: center;
       align-items: center;
@@ -520,6 +520,15 @@
       }
     }
 
+    // Kiểm tra URL và hiển thị action-buttons nếu có /admin
+    function checkAdminAccess() {
+      const actionButtons = document.querySelector('.action-buttons');
+      if (window.location.pathname.includes('/admin')) {
+        actionButtons.style.display = 'flex';
+      } else {
+        actionButtons.style.display = 'none';
+      }
+    }
     // Thêm kết quả game mới
     document.getElementById('gameForm').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -551,6 +560,7 @@
     updatePodium();
     updateRanking();
     updatePlayerDropdowns();
+    checkAdminAccess(); // Kiểm tra quyền admin khi tải trang
   </script>
 </body>
 </html>
