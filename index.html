@@ -40,7 +40,7 @@
       display: flex;
       justify-content: center;
       align-items: flex-end;
-      padding: 3rem 0 2rem;
+      padding: 1rem 0 1rem;
       background: linear-gradient(to top, #fff, #ffe6dc);
       gap: 20px;
       position: sticky;
@@ -79,7 +79,7 @@
 
     .podium-box.third .avatar {
       width: 70px;
-      height: 70px;
+      height: 75px;
       border-width: 3px;
     }
 
@@ -100,8 +100,8 @@
 
     .podium-box.first .bar {
       background: linear-gradient(45deg, #d84315, #ff8c61);
-      width: 100px;
-      height: 160px;
+      width: 80px;
+      height: 110px;
       transform: scale(1.15);
       box-shadow: 0 6px 12px rgba(216, 67, 21, 0.3);
       border: 2px solid #d84315;
@@ -109,8 +109,8 @@
 
     .podium-box.second .bar {
       background: linear-gradient(45deg, #ff9872, #ff8c61);
-      width: 90px;
-      height: 140px;
+      width: 75px;
+      height: 90px;
       transform: scale(1.05);
       box-shadow: 0 4px 8px rgba(255, 152, 114, 0.2);
       border: 2px solid #ff9872;
@@ -118,8 +118,8 @@
 
     .podium-box.third .bar {
       background: linear-gradient(45deg, #ffe0d6, #ff8c61);
-      width: 80px;
-      height: 120px;
+      width: 70px;
+      height: 80px;
       box-shadow: 0 3px 6px rgba(255, 224, 214, 0.15);
       border: 2px solid #ffe0d6;
     }
@@ -127,11 +127,11 @@
     .bar .rank {
       font-size: 20px;
       font-weight: bold;
-      margin-bottom: 5px;
+/*      margin-bottom: 5px;*/
     }
 
     .bar .player-name {
-      font-size: 16px;
+      font-size: 14px;
       font-weight: bold;
       margin: 5px 0;
     }
@@ -444,7 +444,7 @@
           <div class="podium-box second">
             <img src="${playerMap[sortedPlayers[1]?.[0]] || ''}" alt="${sortedPlayers[1]?.[0] || 'Unknown'}" class="avatar">
             <div class="bar">
-              <div class="rank">2</div>
+              <div class="rank">#2</div>
               <div class="player-name">
                 <strong>${sortedPlayers[1]?.[0] || 'Unknown'}</strong><br>
                 ( ${sortedPlayers[1]?.[1] || 0} )
@@ -458,7 +458,7 @@
           <div class="podium-box first">
             <img src="${playerMap[sortedPlayers[0]?.[0]] || ''}" alt="${sortedPlayers[0]?.[0] || 'Unknown'}" class="avatar">
             <div class="bar">
-              <div class="rank">1</div>
+              <div class="rank">#1</div>
               <div class="player-name">
               <strong>${sortedPlayers[0]?.[0] || 'Unknown'}</strong><br>
                 ( ${sortedPlayers[0]?.[1] || 0} )
@@ -472,13 +472,12 @@
           <div class="podium-box third">
             <img src="${playerMap[sortedPlayers[2]?.[0]] || ''}" alt="${sortedPlayers[2]?.[0] || 'Unknown'}" class="avatar">
             <div class="bar">
-              <div class="rank">3</div>
+              <div class="rank">#3</div>
               <div class="player-name">
               <strong>${sortedPlayers[2]?.[0] || 'Unknown'}</strong><br>
               ( ${sortedPlayers[2]?.[1] || 0} )
               </div>
               <div class="stats">
-                Score: ${sortedPlayers[2]?.[1] || 0}<br>
                 ${winLoss[sortedPlayers[2]?.[0]]?.wins || 0}W-${winLoss[sortedPlayers[2]?.[0]]?.losses || 0}L<br>
                 ${(((winLoss[sortedPlayers[2]?.[0]]?.wins || 0) / ((winLoss[sortedPlayers[2]?.[0]]?.wins || 0) + (winLoss[sortedPlayers[2]?.[0]]?.losses || 0)) || 0) * 100).toFixed(0)}%
               </div>
