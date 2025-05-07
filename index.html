@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PES Ngoại Hạng</title>
+  <script defer src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Arial', sans-serif;
+      background: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .app {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      max-width: 420px;
+      margin: 0 auto;
+      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+      border-radius: 20px;
+      min-height: 100vh;
+    }
+
+    @media (min-width: 768px) {
+      .app {
+        max-width: 420px;
+      }
+    }
+
+    .podium {
+      flex: 0 0 40%;
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      padding: 3rem 0 2rem;
+      background: linear-gradient(to top, #fff, #ffe6dc);
+      gap: 20px;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .podium-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+
+    .avatar {
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      margin-bottom: 10px;
+      z-index: 2;
+      object-fit: cover;
+      border: 3px solid #fff;
+    }
+
+    .podium-box.first .avatar {
+      width: 90px;
+      height: 90px;
+      border-width: 4px;
+    }
+
+    .podium-box.second .avatar {
+      width: 80px;
+      height: 80px;
+      border-width: 3px;
+    }
+
+    .podium-box.third .avatar {
+      width: 70px;
+      height: 70px;
+      border-width: 3px;
+    }
+
+    .bar {
+      background-color: #ff8c61;
+      color: white;
+      width: 80px;
+      border-radius: 15px;
+      text-align: center;
+      font-size: 16px;
+      padding: 10px 5px;
+      box-shadow: 0 4px 8px rgba(255, 140, 97, 0.2);
+      transition: transform 0.2s;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .podium-box.first .bar {
+      background: linear-gradient(45deg, #d84315, #ff8c61);
+      width: 100px;
+      height: 160px;
+      transform: scale(1.15);
+      box-shadow: 0 6px 12px rgba(216, 67, 21, 0.3);
+      border: 2px solid #d84315;
+    }
+
+    .podium-box.second .bar {
+      background: linear-gradient(45deg, #ff9872, #ff8c61);
+      width: 90px;
+      height: 140px;
+      transform: scale(1.05);
+      box-shadow: 0 4px 8px rgba(255, 152, 114, 0.2);
+      border: 2px solid #ff9872;
+    }
+
+    .podium-box.third .bar {
+      background: linear-gradient(45deg, #ffe0d6, #ff8c61);
+      width: 80px;
+      height: 120px;
+      box-shadow: 0 3px 6px rgba(255, 224, 214, 0.15);
+      border: 2px solid #ffe0d6;
+    }
+
+    .bar .rank {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .bar .player-name {
+      font-size: 16px;
+      font-weight: bold;
+      margin: 5px 0;
+    }
+
+    .bar .stats {
+      font-size: 12px;
+      line-height: 1.2;
+      padding: 0 5px;
+    }
+
+    .ranking {
+      flex: 1 1 auto;
+      list-style: none;
+      padding: 0;
+      margin: 0.5rem;
+      overflow-y: auto;
+    }
+
+    .ranking li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem;
+      border-bottom: 1px solid #eee;
+      background: #f9f9f9;
+      border-radius: 8px;
+      margin: 0.5rem 0;
+      transition: background 0.2s;
+    }
+
+    .ranking li:hover {
+      background: #ffe6dc;
+    }
+
+    .ranking li span {
+      width: 20px;
+      font-weight: bold;
+    }
+
+    .ranking .game-info {
+      flex-grow: 1;
+    }
+
+    .ranking .game-info .win {
+      color: #28a745;
+    }
+
+    .ranking .game-info .lose {
+      color: #dc3545;
+    }
+
+    .ranking .time {
+      font-size: 12px;
+      color: #666;
+      text-align: right;
+    }
+
+    .action-buttons {
+      flex: 0 0 20%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 1rem;
+      border-top: 1px solid #ddd;
+      background: #fff;
+      position: sticky;
+      bottom: 0;
+      z-index: 1;
+    }
+
+    .action-buttons form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 100%;
+      max-width: 300px;
+    }
+
+    .action-buttons select {
+      padding: 0.75rem;
+      border: 2px solid #ddd;
+      border-radius: 10px;
+      font-size: 16px;
+      background: #fff;
+      width: 100%;
+      box-sizing: border-box;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23333' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.75rem center;
+      cursor: pointer;
+      transition: border-color 0.3s, background-color 0.3s;
+    }
+
+    .action-buttons #winner:valid {
+      border-color: #28a745;
+      background-color: #e8f5e9;
+    }
+
+    .action-buttons #loser:valid {
+      border-color: #dc3545;
+      background-color: #fce4e4;
+    }
+
+    .action-buttons select:focus {
+      outline: none;
+      border-color: #ff8c61;
+      box-shadow: 0 0 5px rgba(255, 140, 97, 0.5);
+    }
+
+    .action-buttons button {
+      background-color: #ff8c61;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 10px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.3s;
+      width: 100%;
+    }
+
+    .action-buttons button:hover {
+      background-color: #e07b55;
+    }
+
+    .error-message {
+      color: red;
+      text-align: center;
+      padding: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="podium" id="podium">
+      <!-- Podium sẽ được cập nhật động bởi JavaScript -->
+    </div>
+
+    <ul class="ranking" id="ranking">
+      <!-- Danh sách game sẽ được cập nhật động bởi JavaScript -->
+    </ul>
+
+    <div class="action-buttons">
+      <form id="gameForm">
+        <select id="winner" required>
+          <option value="" disabled selected>Select Winner</option>
+          <!-- Options sẽ được thêm động bởi JavaScript -->
+        </select>
+        <select id="loser" required>
+          <option value="" disabled selected>Select Loser</option>
+          <!-- Options sẽ được thêm động bởi JavaScript -->
+        </select>
+        <button type="submit">Add Game Result</button>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    // Import Firebase modules
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // Cấu hình Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyDS33oZskIKnTcdX4ofQ7v6bttKDeE7upY",
+      authDomain: "pesranking-f7915.firebaseapp.com",
+      projectId: "pesranking-f7915",
+      storageBucket: "pesranking-f7915.firebasestorage.app",
+      messagingSenderId: "692202737604",
+      appId: "1:692202737604:web:53f12dec8a5aa764505e91"
+    };
+
+    // Khởi tạo Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // Fallback data nếu Firestore không tải được
+    const fallbackPodium = [
+      { name: "Amelia", score: 720, avatarUrl: "", wins: 4, losses: 5 },
+      { name: "Elise", score: 713, avatarUrl: "", wins: 3, losses: 4 },
+      { name: "Said", score: 684, avatarUrl: "", wins: 2, losses: 6 }
+    ];
+    const fallbackRanking = [
+      { time: Date.now(), win: "Amelia", lose: "Elise" },
+      { time: Date.now() - 86400000, win: "Elise", lose: "Said" }
+    ];
+
+    // Hàm hiển thị dữ liệu fallback nếu Firestore lỗi
+    function renderFallback() {
+      const podium = document.getElementById('podium');
+      podium.innerHTML = `
+        <div class="podium-box second">
+          <img src="${fallbackPodium[1].avatarUrl || ''}" alt="${fallbackPodium[1].name}" class="avatar">
+          <div class="bar">
+            <div class="rank">2</div>
+            <div class="player-name"><strong>${fallbackPodium[1].name}</strong></div>
+            <div class="stats">
+              Score: ${fallbackPodium[1].score}<br>
+              ${fallbackPodium[1].wins}W-${fallbackPodium[1].losses}L<br>
+              ${((fallbackPodium[1].wins / (fallbackPodium[1].wins + fallbackPodium[1].losses)) * 100).toFixed(0)}%
+            </div>
+          </div>
+        </div>
+        <div class="podium-box first">
+          <img src="${fallbackPodium[0].avatarUrl || ''}" alt="${fallbackPodium[0].name}" class="avatar">
+          <div class="bar">
+            <div class="rank">1</div>
+            <div class="player-name"><strong>${fallbackPodium[0].name}</strong></div>
+            <div class="stats">
+              Score: ${fallbackPodium[0].score}<br>
+              ${fallbackPodium[0].wins}W-${fallbackPodium[0].losses}L<br>
+              ${((fallbackPodium[0].wins / (fallbackPodium[0].wins + fallbackPodium[0].losses)) * 100).toFixed(0)}%
+            </div>
+          </div>
+        </div>
+        <div class="podium-box third">
+          <img src="${fallbackPodium[2].avatarUrl || ''}" alt="${fallbackPodium[2].name}" class="avatar">
+          <div class="bar">
+            <div class="rank">3</div>
+            <div class="player-name"><strong>${fallbackPodium[2].name}</strong></div>
+            <div class="stats">
+              Score: ${fallbackPodium[2].score}<br>
+              ${fallbackPodium[2].wins}W-${fallbackPodium[2].losses}L<br>
+              ${((fallbackPodium[2].wins / (fallbackPodium[2].wins + fallbackPodium[2].losses)) * 100).toFixed(0)}%
+            </div>
+          </div>
+        </div>
+      `;
+
+      const ranking = document.getElementById('ranking');
+      ranking.innerHTML = fallbackRanking.map((game, index) => `
+        <li>
+          <span>${index + 1}</span>
+          <div class="game-info">
+            <span class="win">Win: <span class="player-name">${game.win}</span></span>, <span class="lose">Lose: <span class="player-name">${game.lose}</span></span>
+          </div>
+          <div class="time">${formatDateTime(new Date(game.time))}</div>
+        </li>
+      `).join('') + '<li class="error-message">Failed to load data from Firestore</li>';
+    }
+
+    // Hàm định dạng thời gian từ Timestamp sang "25-May 15h20"
+    function formatDateTime(timestamp) {
+      const date = new Date(timestamp);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = date.toLocaleString('en-GB', { month: 'short' });
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${day}-${month} ${hours}h${minutes}`;
+    }
+
+    // Hàm lấy danh sách người chơi từ collection 'players'
+    async function updatePlayerDropdowns() {
+      try {
+        const playersSnapshot = await getDocs(collection(db, 'players'));
+        const players = playersSnapshot.docs.map(doc => doc.data());
+
+        const winnerSelect = document.getElementById('winner');
+        const loserSelect = document.getElementById('loser');
+
+        winnerSelect.innerHTML = '<option value="" disabled selected>Select Winner</option>' + 
+          players.map(player => `<option value="${player.name}">${player.name}</option>`).join('');
+        loserSelect.innerHTML = '<option value="" disabled selected>Select Loser</option>' + 
+          players.map(player => `<option value="${player.name}">${player.name}</option>`).join('');
+      } catch (error) {
+        console.error("Error updating dropdowns:", error);
+        const defaultPlayers = ['Amelia', 'Elise', 'Said', 'HaoB', 'Sip'].map(name => ({ name, avatarUrl: "" }));
+        const winnerSelect = document.getElementById('winner');
+        const loserSelect = document.getElementById('loser');
+        winnerSelect.innerHTML = '<option value="" disabled selected>Select Winner</option>' + 
+          defaultPlayers.map(player => `<option value="${player.name}">${player.name}</option>`).join('');
+        loserSelect.innerHTML = '<option value="" disabled selected>Select Loser</option>' + 
+          defaultPlayers.map(player => `<option value="${player.name}">${player.name}</option>`).join('');
+      }
+    }
+
+    // Hàm tính điểm và cập nhật podium với thông tin tổng hợp
+    async function updatePodium() {
+      try {
+        const gamesSnapshot = await getDocs(collection(db, 'games'));
+        const games = gamesSnapshot.docs.map(doc => doc.data());
+
+        const scores = {};
+        const winLoss = {};
+        games.forEach(game => {
+          scores[game.win] = (scores[game.win] || 0) + 1;
+          scores[game.lose] = (scores[game.lose] || 0) - 1;
+          winLoss[game.win] = (winLoss[game.win] || { wins: 0, losses: 0 });
+          winLoss[game.lose] = (winLoss[game.lose] || { wins: 0, losses: 0 });
+          winLoss[game.win].wins += 1;
+          winLoss[game.lose].losses += 1;
+        });
+
+        const playersSnapshot = await getDocs(collection(db, 'players'));
+        const players = playersSnapshot.docs.map(doc => doc.data());
+
+        const playerMap = players.reduce((map, player) => {
+          map[player.name] = player.avatarUrl || "";
+          return map;
+        }, {});
+
+        const sortedPlayers = Object.entries(scores)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3);
+
+        const podium = document.getElementById('podium');
+        podium.innerHTML = `
+          <div class="podium-box second">
+            <img src="${playerMap[sortedPlayers[1]?.[0]] || ''}" alt="${sortedPlayers[1]?.[0] || 'Unknown'}" class="avatar">
+            <div class="bar">
+              <div class="rank">2</div>
+              <div class="player-name">
+                <strong>${sortedPlayers[1]?.[0] || 'Unknown'}</strong><br>
+                ( ${sortedPlayers[1]?.[1] || 0} )
+              </div>
+              <div class="stats">
+                ${winLoss[sortedPlayers[1]?.[0]]?.wins || 0}W-${winLoss[sortedPlayers[1]?.[0]]?.losses || 0}L<br>
+                ${(((winLoss[sortedPlayers[1]?.[0]]?.wins || 0) / ((winLoss[sortedPlayers[1]?.[0]]?.wins || 0) + (winLoss[sortedPlayers[1]?.[0]]?.losses || 0)) || 0) * 100).toFixed(0)}%
+              </div>
+            </div>
+          </div>
+          <div class="podium-box first">
+            <img src="${playerMap[sortedPlayers[0]?.[0]] || ''}" alt="${sortedPlayers[0]?.[0] || 'Unknown'}" class="avatar">
+            <div class="bar">
+              <div class="rank">1</div>
+              <div class="player-name">
+              <strong>${sortedPlayers[0]?.[0] || 'Unknown'}</strong><br>
+                ( ${sortedPlayers[0]?.[1] || 0} )
+              </div>
+              <div class="stats">
+                ${winLoss[sortedPlayers[0]?.[0]]?.wins || 0}W-${winLoss[sortedPlayers[0]?.[0]]?.losses || 0}L<br>
+                ${(((winLoss[sortedPlayers[0]?.[0]]?.wins || 0) / ((winLoss[sortedPlayers[0]?.[0]]?.wins || 0) + (winLoss[sortedPlayers[0]?.[0]]?.losses || 0)) || 0) * 100).toFixed(0)}%
+              </div>
+            </div>
+          </div>
+          <div class="podium-box third">
+            <img src="${playerMap[sortedPlayers[2]?.[0]] || ''}" alt="${sortedPlayers[2]?.[0] || 'Unknown'}" class="avatar">
+            <div class="bar">
+              <div class="rank">3</div>
+              <div class="player-name">
+              <strong>${sortedPlayers[2]?.[0] || 'Unknown'}</strong><br>
+              ( ${sortedPlayers[2]?.[1] || 0} )
+              </div>
+              <div class="stats">
+                Score: ${sortedPlayers[2]?.[1] || 0}<br>
+                ${winLoss[sortedPlayers[2]?.[0]]?.wins || 0}W-${winLoss[sortedPlayers[2]?.[0]]?.losses || 0}L<br>
+                ${(((winLoss[sortedPlayers[2]?.[0]]?.wins || 0) / ((winLoss[sortedPlayers[2]?.[0]]?.wins || 0) + (winLoss[sortedPlayers[2]?.[0]]?.losses || 0)) || 0) * 100).toFixed(0)}%
+              </div>
+            </div>
+          </div>
+        `;
+      } catch (error) {
+        console.error("Error updating podium:", error);
+        renderFallback();
+      }
+    }
+
+    // Hàm cập nhật danh sách ranking theo thời gian gần nhất lên trên
+    async function updateRanking() {
+      try {
+        const gamesSnapshot = await getDocs(collection(db, 'games'));
+        const games = gamesSnapshot.docs.map(doc => {
+          const data = doc.data();
+          if (data.time && data.time.toDate) {
+            data.time = data.time.toDate();
+          }
+          return data;
+        }).sort((a, b) => b.time - a.time); // Sắp xếp theo thời gian giảm dần
+
+        const ranking = document.getElementById('ranking');
+        ranking.innerHTML = games.map((game, index) => `
+          <li>
+            <span>${index + 1}</span>
+            <div class="game-info">
+              Win: 
+              <span class="win"><span class="player-name">${game.win}</span></span>, Lose: 
+              <span class="lose"><span class="player-name">${game.lose}</span></span>
+            </div>
+            <div class="time">${formatDateTime(game.time)}</div>
+          </li>
+        `).join('');
+      } catch (error) {
+        console.error("Error updating ranking:", error);
+        renderFallback();
+      }
+    }
+
+    // Thêm kết quả game mới
+    document.getElementById('gameForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const winner = document.getElementById('winner').value;
+      const loser = document.getElementById('loser').value;
+
+      if (winner && loser && winner !== loser) {
+        try {
+          await addDoc(collection(db, 'games'), {
+            time: new Date(),
+            win: winner,
+            lose: loser
+          });
+
+          await updatePodium();
+          await updateRanking();
+          await updatePlayerDropdowns();
+          document.getElementById('gameForm').reset();
+        } catch (error) {
+          console.error("Error adding game result:", error);
+          alert("Failed to add game result. Please try again.");
+        }
+      } else {
+        alert("Please select different players for winner and loser.");
+      }
+    });
+
+    // Khởi tạo dữ liệu khi tải trang
+    updatePodium();
+    updateRanking();
+    updatePlayerDropdowns();
+  </script>
+</body>
+</html>
