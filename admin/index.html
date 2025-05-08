@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>PES Ngoại Hạng</title>
+  <link rel="icon" type="image/png" href="pes-icon.png">
   <script defer src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
   <style>
@@ -127,7 +128,6 @@
     .bar .rank {
       font-size: 20px;
       font-weight: bold;
-/*      margin-bottom: 5px;*/
     }
 
     .bar .player-name {
@@ -140,6 +140,40 @@
       font-size: 12px;
       line-height: 1.2;
       padding: 0 5px;
+    }
+
+    .filter-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      padding: 0.75rem;
+      background: #fff;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .filter-buttons button {
+      padding: 0.5rem 1.2rem;
+      border: none;
+      border-radius: 20px;
+      background: #f5f5f5;
+      color: #333;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .filter-buttons button:hover {
+      background: #ffe6dc;
+      transform: translateY(-1px);
+    }
+
+    .filter-buttons button.active {
+      background: #ff8c61;
+      color: white;
+      box-shadow: 0 4px 8px rgba(255, 140, 97, 0.3);
+      transform: translateY(-2px);
     }
 
     .ranking {
@@ -259,7 +293,7 @@
       background-color: #e07b55;
     }
 
-    .error-message {
+    .error-message zes {
       color: red;
       text-align: center;
       padding: 1rem;
@@ -271,6 +305,12 @@
     <div class="podium" id="podium">
       <!-- Podium sẽ được cập nhật động bởi JavaScript -->
     </div>
+    
+    <div class="filter-buttons">
+      <button data-filter="today" class="active">Today</button>
+      <button data-filter="month">This Month</button>
+      <button data-filter="all">All</button>
+    </div>
 
     <ul class="ranking" id="ranking">
       <!-- Danh sách game sẽ được cập nhật động bởi JavaScript -->
@@ -280,11 +320,9 @@
       <form id="gameForm">
         <select id="winner" required>
           <option value="" disabled selected>Select Winner</option>
-          <!-- Options sẽ được thêm động bởi JavaScript -->
         </select>
         <select id="loser" required>
           <option value="" disabled selected>Select Loser</option>
-          <!-- Options sẽ được thêm động bởi JavaScript -->
         </select>
         <button type="submit">Add Game Result</button>
       </form>
@@ -292,11 +330,9 @@
   </div>
 
   <script type="module">
-    // Import Firebase modules
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getFirestore, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    // Cấu hình Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyDS33oZskIKnTcdX4ofQ7v6bttKDeE7upY",
       authDomain: "pesranking-f7915.firebaseapp.com",
@@ -306,11 +342,9 @@
       appId: "1:692202737604:web:53f12dec8a5aa764505e91"
     };
 
-    // Khởi tạo Firebase
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // Fallback data nếu Firestore không tải được
     const fallbackPodium = [
       { name: "Amelia", score: 720, avatarUrl: "", wins: 4, losses: 5 },
       { name: "Elise", score: 713, avatarUrl: "", wins: 3, losses: 4 },
@@ -321,7 +355,6 @@
       { time: Date.now() - 86400000, win: "Elise", lose: "Said" }
     ];
 
-    // Hàm hiển thị dữ liệu fallback nếu Firestore lỗi
     function renderFallback() {
       const podium = document.getElementById('podium');
       podium.innerHTML = `
@@ -375,7 +408,6 @@
       `).join('') + '<li class="error-message">Failed to load data from Firestore</li>';
     }
 
-    // Hàm định dạng thời gian từ Timestamp sang "25-May 15h20"
     function formatDateTime(timestamp) {
       const date = new Date(timestamp);
       const day = String(date.getDate()).padStart(2, '0');
@@ -385,7 +417,6 @@
       return `${day}-${month} ${hours}h${minutes}`;
     }
 
-    // Hàm lấy danh sách người chơi từ collection 'players'
     async function updatePlayerDropdowns() {
       try {
         const playersSnapshot = await getDocs(collection(db, 'players'));
@@ -410,11 +441,27 @@
       }
     }
 
-    // Hàm tính điểm và cập nhật podium với thông tin tổng hợp
-    async function updatePodium() {
+    async function updatePodium(filter = 'all') {
       try {
         const gamesSnapshot = await getDocs(collection(db, 'games'));
-        const games = gamesSnapshot.docs.map(doc => doc.data());
+        let games = gamesSnapshot.docs.map(doc => {
+          const data = doc.data();
+          if (data.time && data.time.toDate) {
+            data.time = data.time.toDate();
+          }
+          return data;
+        });
+
+        // Filter games based on selected period
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        if (filter === 'today') {
+          games = games.filter(game => game.time >= startOfToday);
+        } else if (filter === 'month') {
+          games = games.filter(game => game.time >= startOfMonth);
+        }
 
         const scores = {};
         const winLoss = {};
@@ -441,48 +488,54 @@
 
         const podium = document.getElementById('podium');
         podium.innerHTML = `
-          <div class="podium-box second">
-            <img src="${playerMap[sortedPlayers[1]?.[0]] || ''}" alt="${sortedPlayers[1]?.[0] || 'Unknown'}" class="avatar">
-            <div class="bar">
-              <div class="rank">#2</div>
-              <div class="player-name">
-                <strong>${sortedPlayers[1]?.[0] || 'Unknown'}</strong><br>
-                ( ${sortedPlayers[1]?.[1] || 0} )
-              </div>
-              <div class="stats">
-                ${winLoss[sortedPlayers[1]?.[0]]?.wins || 0}W-${winLoss[sortedPlayers[1]?.[0]]?.losses || 0}L<br>
-                ${(((winLoss[sortedPlayers[1]?.[0]]?.wins || 0) / ((winLoss[sortedPlayers[1]?.[0]]?.wins || 0) + (winLoss[sortedPlayers[1]?.[0]]?.losses || 0)) || 0) * 100).toFixed(0)}%
-              </div>
-            </div>
-          </div>
-          <div class="podium-box first">
-            <img src="${playerMap[sortedPlayers[0]?.[0]] || ''}" alt="${sortedPlayers[0]?.[0] || 'Unknown'}" class="avatar">
-            <div class="bar">
-              <div class="rank">#1</div>
-              <div class="player-name">
-              <strong>${sortedPlayers[0]?.[0] || 'Unknown'}</strong><br>
-                ( ${sortedPlayers[0]?.[1] || 0} )
-              </div>
-              <div class="stats">
-                ${winLoss[sortedPlayers[0]?.[0]]?.wins || 0}W-${winLoss[sortedPlayers[0]?.[0]]?.losses || 0}L<br>
-                ${(((winLoss[sortedPlayers[0]?.[0]]?.wins || 0) / ((winLoss[sortedPlayers[0]?.[0]]?.wins || 0) + (winLoss[sortedPlayers[0]?.[0]]?.losses || 0)) || 0) * 100).toFixed(0)}%
+          ${sortedPlayers[1] ? `
+            <div class="podium-box second">
+              <img src="${playerMap[sortedPlayers[1][0]] || ''}" alt="${sortedPlayers[1][0] || 'Unknown'}" class="avatar">
+              <div class="bar">
+                <div class="rank">#2</div>
+                <div class="player-name">
+                  <strong>${sortedPlayers[1][0] || 'Unknown'}</strong><br>
+                  ( ${sortedPlayers[1][1] || 0} )
+                </div>
+                <div class="stats">
+                  ${winLoss[sortedPlayers[1][0]]?.wins || 0}W-${winLoss[sortedPlayers[1][0]]?.losses || 0}L<br>
+                  ${(((winLoss[sortedPlayers[1][0]]?.wins || 0) / ((winLoss[sortedPlayers[1][0]]?.wins || 0) + (winLoss[sortedPlayers[1][0]]?.losses || 0)) || 0) * 100).toFixed(0)}%
+                </div>
               </div>
             </div>
-          </div>
-          <div class="podium-box third">
-            <img src="${playerMap[sortedPlayers[2]?.[0]] || ''}" alt="${sortedPlayers[2]?.[0] || 'Unknown'}" class="avatar">
-            <div class="bar">
-              <div class="rank">#3</div>
-              <div class="player-name">
-              <strong>${sortedPlayers[2]?.[0] || 'Unknown'}</strong><br>
-              ( ${sortedPlayers[2]?.[1] || 0} )
-              </div>
-              <div class="stats">
-                ${winLoss[sortedPlayers[2]?.[0]]?.wins || 0}W-${winLoss[sortedPlayers[2]?.[0]]?.losses || 0}L<br>
-                ${(((winLoss[sortedPlayers[2]?.[0]]?.wins || 0) / ((winLoss[sortedPlayers[2]?.[0]]?.wins || 0) + (winLoss[sortedPlayers[2]?.[0]]?.losses || 0)) || 0) * 100).toFixed(0)}%
+          ` : ''}
+          ${sortedPlayers[0] ? `
+            <div class="podium-box first">
+              <img src="${playerMap[sortedPlayers[0][0]] || ''}" alt="${sortedPlayers[0][0] || 'Unknown'}" class="avatar">
+              <div class="bar">
+                <div class="rank">#1</div>
+                <div class="player-name">
+                  <strong>${sortedPlayers[0][0] || 'Unknown'}</strong><br>
+                  ( ${sortedPlayers[0][1] || 0} )
+                </div>
+                <div class="stats">
+                  ${winLoss[sortedPlayers[0][0]]?.wins || 0}W-${winLoss[sortedPlayers[0][0]]?.losses || 0}L<br>
+                  ${(((winLoss[sortedPlayers[0][0]]?.wins || 0) / ((winLoss[sortedPlayers[0][0]]?.wins || 0) + (winLoss[sortedPlayers[0][0]]?.losses || 0)) || 0) * 100).toFixed(0)}%
+                </div>
               </div>
             </div>
-          </div>
+          ` : ''}
+          ${sortedPlayers[2] ? `
+            <div class="podium-box third">
+              <img src="${playerMap[sortedPlayers[2][0]] || ''}" alt="${sortedPlayers[2][0] || 'Unknown'}" class="avatar">
+              <div class="bar">
+                <div class="rank">#3</div>
+                <div class="player-name">
+                  <strong>${sortedPlayers[2][0] || 'Unknown'}</strong><br>
+                  ( ${sortedPlayers[2][1] || 0} )
+                </div>
+                <div class="stats">
+                  ${winLoss[sortedPlayers[2][0]]?.wins || 0}W-${winLoss[sortedPlayers[2][0]]?.losses || 0}L<br>
+                  ${(((winLoss[sortedPlayers[2][0]]?.wins || 0) / ((winLoss[sortedPlayers[2][0]]?.wins || 0) + (winLoss[sortedPlayers[2][0]]?.losses || 0)) || 0) * 100).toFixed(0)}%
+                </div>
+              </div>
+            </div>
+          ` : ''}
         `;
       } catch (error) {
         console.error("Error updating podium:", error);
@@ -490,20 +543,32 @@
       }
     }
 
-    // Hàm cập nhật danh sách ranking theo thời gian gần nhất lên trên
-    async function updateRanking() {
+    async function updateRanking(filter = 'all') {
       try {
         const gamesSnapshot = await getDocs(collection(db, 'games'));
-        const games = gamesSnapshot.docs.map(doc => {
+        let games = gamesSnapshot.docs.map(doc => {
           const data = doc.data();
           if (data.time && data.time.toDate) {
             data.time = data.time.toDate();
           }
           return data;
-        }).sort((a, b) => b.time - a.time); // Sắp xếp theo thời gian giảm dần
+        });
+
+        // Filter games based on selected period
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        if (filter === 'today') {
+          games = games.filter(game => game.time >= startOfToday);
+        } else if (filter === 'month') {
+          games = games.filter(game => game.time >= startOfMonth);
+        }
+
+        games.sort((a, b) => b.time - a.time);
 
         const ranking = document.getElementById('ranking');
-        ranking.innerHTML = games.map((game, index) => `
+        ranking.innerHTML = games.length > 0 ? games.map((game, index) => `
           <li>
             <span>${index + 1}</span>
             <div class="game-info">
@@ -513,13 +578,13 @@
             </div>
             <div class="time">${formatDateTime(game.time)}</div>
           </li>
-        `).join('');
+        `).join('') : '<li class="error-message">No games found for this period</li>';
       } catch (error) {
         console.error("Error updating ranking:", error);
         renderFallback();
       }
     }
-    // Thêm kết quả game mới
+
     document.getElementById('gameForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const winner = document.getElementById('winner').value;
@@ -533,8 +598,9 @@
             lose: loser
           });
 
-          await updatePodium();
-          await updateRanking();
+          const activeFilter = document.querySelector('.filter-buttons button.active')?.dataset.filter || 'all';
+          await updatePodium(activeFilter);
+          await updateRanking(activeFilter);
           await updatePlayerDropdowns();
           document.getElementById('gameForm').reset();
         } catch (error) {
@@ -546,9 +612,21 @@
       }
     });
 
-    // Khởi tạo dữ liệu khi tải trang
-    updatePodium();
-    updateRanking();
+    // Filter button event listeners
+    const filterButtons = document.querySelectorAll('.filter-buttons button');
+    filterButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        filterButtons.forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+        const filter = button.dataset.filter;
+        updatePodium(filter);
+        updateRanking(filter);
+      });
+    });
+
+    // Initialize with 'today' filter
+    updatePodium('today');
+    updateRanking('today');
     updatePlayerDropdowns();
   </script>
 </body>
