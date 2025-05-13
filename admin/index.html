@@ -7,10 +7,12 @@
   <link rel="icon" type="image/png" href="pes-icon.png">
   <script defer src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
   <style>
     body {
       margin: 0;
-      font-family: 'Arial', sans-serif;
+      font-family: 'Roboto', 'Arial', sans-serif;
       background: #fff;
       display: flex;
       justify-content: center;
@@ -148,7 +150,6 @@
       gap: 8px;
       padding: 0.75rem;
       background: #fff;
-      border-bottom: 1px solid #ddd;
     }
 
     .filter-buttons button {
@@ -176,15 +177,86 @@
       transform: translateY(-2px);
     }
 
-    .ranking {
-      flex: 1 1 auto;
-      list-style: none;
-      padding: 0;
-      margin: 0.5rem;
-      overflow-y: auto;
+    .tab-buttons {
+      display: flex;
+      width: 100%;
+      justify-content: space-around;
+      background: #fff;
+      padding: 0.25rem 0;
     }
 
-    .ranking li {
+    .tab-buttons button {
+      padding: 0.5rem 1rem;
+      border: none;
+      background: none;
+      color: #616161;
+      font-family: 'Roboto', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      position: relative;
+      transition: color 0.3s ease, transform 0.2s ease;
+      margin: 0 2px;
+      flex: 1;
+      text-align: center;
+    }
+
+    .tab-buttons button:hover {
+      color: #212121;
+      transform: translateY(-2px);
+    }
+
+    .tab-buttons button.active {
+      color: #ff8c61;
+      font-weight: 600;
+    }
+
+    .tab-buttons button.active::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: #ff8c61;
+      animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes slideIn {
+      from { width: 0; }
+      to { width: 100%; }
+    }
+
+    .content {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      padding: 0.5rem;
+    }
+
+    .history, .statistics {
+      display: none;
+    }
+
+    .history.active {
+      display: block;
+    }
+
+    .statistics.active {
+      display: block;
+    }
+
+    .history {
+      padding: 0;
+      margin: 0;
+    }
+
+    .history-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .history-list li {
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -193,43 +265,108 @@
       background: #f9f9f9;
       border-radius: 8px;
       margin: 0.5rem 0;
-      transition: background 0.2s;
+      transition: background 0.2s, transform 0.3s;
+      position: relative;
+      overflow: hidden;
     }
 
-    .ranking li:hover {
+    .history-list li:hover {
       background: #ffe6dc;
     }
 
-    .ranking li span {
+    .history-list li span {
       width: 20px;
       font-weight: bold;
     }
 
-    .ranking .game-info {
+    .history-list .game-info {
       flex-grow: 1;
     }
 
-    .ranking .game-info .win {
+    .history-list .game-info .win {
       color: #28a745;
     }
 
-    .ranking .game-info .lose {
+    .history-list .game-info .lose {
       color: #dc3545;
     }
 
-    .ranking .time {
+    .history-list .time {
       font-size: 12px;
       color: #666;
       text-align: right;
     }
 
+    .history-list .delete-btn {
+      position: absolute;
+      right: -80px;
+      top: 0;
+      bottom: 0;
+      width: 80px;
+      background: #dc3545;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 14px;
+      font-weight: bold;
+      transition: right 0.3s;
+      cursor: pointer;
+    }
+
+    .history-list li.swipe-delete .delete-btn {
+      right: 0;
+    }
+
+    .statistics {
+      padding: 1rem;
+      display: none; /* Ensure charts are hidden by default */
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .chart-container {
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .history-chart-container {
+      width: 100%;
+      height: 300px;
+    }
+
+    .winrate-chart-container {
+      width: 100%;
+      max-width: 300px;
+      margin: 0 auto;
+      height: 300px;
+    }
+
+    .radar-chart-container {
+      width: 100%;
+      max-width: 300px;
+      margin: 0 auto;
+      height: 300px;
+    }
+
+    .cumulative-wins-chart-container {
+      width: 100%;
+      height: 300px;
+    }
+
+    @media (max-width: 420px) {
+      .winrate-chart-container,
+      .radar-chart-container {
+        max-width: 100%;
+      }
+    }
+
     .action-buttons {
-      flex: 0 0 20%;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      padding: 1rem;
+      padding: 0.25rem;
       border-top: 1px solid #ddd;
       background: #fff;
       position: sticky;
@@ -237,66 +374,166 @@
       z-index: 1;
     }
 
-    .action-buttons form {
+    .action-buttons.hidden {
+      display: none;
+    }
+
+    .action-buttons .label-container {
       display: flex;
-      flex-direction: column;
-      gap: 10px;
+      justify-content: center;
       width: 100%;
       max-width: 300px;
+      margin-bottom: 2px;
     }
 
-    .action-buttons select {
-      padding: 0.75rem;
-      border: 2px solid #ddd;
-      border-radius: 10px;
-      font-size: 16px;
-      background: #fff;
+    .action-buttons .radio-label {
+      font-size: 12px;
+      font-weight: bold;
+      color: #ff8c61;
+    }
+
+    .action-buttons .radio-group {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
       width: 100%;
-      box-sizing: border-box;
-      appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23333' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 0.75rem center;
+      max-width: 300px;
+      padding: 0.25rem;
+      border-radius: 10px;
+    }
+
+    .action-buttons .radio-group .avatar-container {
+      display: flex;
+      justify-content: center;
+      gap: 5px;
+      width: 100%;
+    }
+
+    .action-buttons .radio-item {
+      position: relative;
       cursor: pointer;
-      transition: border-color 0.3s, background-color 0.3s;
     }
 
-    .action-buttons #winner:valid {
-      border-color: #28a745;
-      background-color: #e8f5e9;
+    .action-buttons .radio-item input[type="radio"] {
+      display: none; /* Hide the radio button */
     }
 
-    .action-buttons #loser:valid {
-      border-color: #dc3545;
-      background-color: #fce4e4;
+    .action-buttons .radio-item .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid #ccc;
+      transition: opacity 0.3s, filter 0.3s, border-color 0.3s;
     }
 
-    .action-buttons select:focus {
-      outline: none;
-      border-color: #ff8c61;
-      box-shadow: 0 0 5px rgba(255, 140, 97, 0.5);
+    .action-buttons #winnerRadio .radio-item input[type="radio"]:checked + .avatar {
+      border-color: #28a745; /* Green border for selected winner */
+      opacity: 1;
+      filter: none;
+    }
+
+    .action-buttons #loserRadio .radio-item input[type="radio"]:checked + .avatar {
+      border-color: #dc3545; /* Red border for selected loser */
+      opacity: 1;
+      filter: none;
+    }
+
+    .action-buttons .radio-group .radio-item:not(:has(input[type="radio"]:checked)) .avatar {
+      opacity: 1; /* Default opacity for unselected */
+      filter: none;
+    }
+
+    .action-buttons .radio-group:has(input[type="radio"]:checked) .radio-item:not(:has(input[type="radio"]:checked)) .avatar {
+      opacity: 0.3; /* Dim unselected avatars */
+      filter: grayscale(100%); /* Grayscale effect for disabled look */
     }
 
     .action-buttons button {
       background-color: #ff8c61;
       color: white;
       border: none;
-      padding: 0.75rem 1.5rem;
-      border-radius: 10px;
+      padding: 0.4rem 0.8rem;
+      border-radius: 8px;
       font-weight: bold;
       cursor: pointer;
       transition: background-color 0.3s;
       width: 100%;
+      max-width: 300px;
+      margin-top: 2px;
     }
 
     .action-buttons button:hover {
       background-color: #e07b55;
     }
 
-    .error-message zes {
+    .error-message {
       color: red;
       text-align: center;
       padding: 1rem;
+    }
+
+    /* Custom Popup Styles */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .modal {
+      display: none;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      width: 80%;
+      max-width: 300px;
+      text-align: center;
+      position: relative;
+    }
+
+    .modal-content {
+      margin-bottom: 20px;
+    }
+
+    .modal-buttons {
+      display: flex;
+      justify-content: space-around;
+    }
+
+    .modal-buttons button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .modal-buttons .confirm-btn {
+      background-color: #28a745;
+      color: white;
+    }
+
+    .modal-buttons .cancel-btn {
+      background-color: #dc3545;
+      color: white;
+    }
+
+    .winner-name {
+      color: #28a745;
+      font-weight: bold;
+    }
+
+    .loser-name {
+      color: #dc3545;
+      font-weight: bold;
     }
   </style>
 </head>
@@ -308,30 +545,69 @@
     
     <div class="filter-buttons">
       <button data-filter="today" class="active">Today</button>
+      <button data-filter="week">This Week</button>
       <button data-filter="month">This Month</button>
       <button data-filter="all">All</button>
     </div>
 
-    <ul class="ranking" id="ranking">
-      <!-- Danh sách game sẽ được cập nhật động bởi JavaScript -->
-    </ul>
+    <div class="tab-buttons">
+      <button data-tab="history" class="active">History</button>
+      <button data-tab="statistics">Statistics</button>
+    </div>
+
+    <div class="content">
+      <div class="history active" id="history">
+        <ul class="history-list" id="history-list">
+          <!-- Danh sách game sẽ được cập nhật động bởi JavaScript -->
+        </ul>
+      </div>
+      <div class="statistics" id="statistics">
+        <div class="history-chart-container">
+          <canvas id="history-chart"></canvas>
+        </div>
+        <div class="winrate-chart-container">
+          <canvas id="winrate-chart"></canvas>
+        </div>
+        <div class="radar-chart-container">
+          <canvas id="radar-chart"></canvas>
+        </div>
+        <div class="cumulative-wins-chart-container">
+          <canvas id="cumulative-wins-chart"></canvas>
+        </div>
+      </div>
+    </div>
 
     <div class="action-buttons">
-      <form id="gameForm">
-        <select id="winner" required>
-          <option value="" disabled selected>Select Winner</option>
-        </select>
-        <select id="loser" required>
-          <option value="" disabled selected>Select Loser</option>
-        </select>
-        <button type="submit">Add Game Result</button>
-      </form>
+      <div class="label-container">
+        <span class="radio-label">Winner:</span>
+      </div>
+      <div class="radio-group" id="winnerRadio">
+        <div class="avatar-container"></div>
+      </div>
+      <div class="label-container">
+        <span class="radio-label">Loser:</span>
+      </div>
+      <div class="radio-group" id="loserRadio">
+        <div class="avatar-container"></div>
+      </div>
+      <button type="button" id="submitGame">Add Game Result</button>
+    </div>
+
+    <!-- Custom Popup -->
+    <div class="modal-overlay" id="modal-overlay">
+      <div class="modal" id="modal">
+        <div class="modal-content" id="modal-content"></div>
+        <div class="modal-buttons">
+          <button class="confirm-btn" id="confirm-btn">Confirm</button>
+          <button class="cancel-btn" id="cancel-btn">Cancel</button>
+        </div>
+      </div>
     </div>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getFirestore, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDS33oZskIKnTcdX4ofQ7v6bttKDeE7upY",
@@ -396,16 +672,82 @@
         </div>
       `;
 
-      const ranking = document.getElementById('ranking');
-      ranking.innerHTML = fallbackRanking.map((game, index) => `
-        <li>
+      const historyList = document.getElementById('history-list');
+      historyList.innerHTML = fallbackRanking.map((game, index) => `
+        <li data-id="fallback-${index}">
           <span>${index + 1}</span>
           <div class="game-info">
             <span class="win">Win: <span class="player-name">${game.win}</span></span>, <span class="lose">Lose: <span class="player-name">${game.lose}</span></span>
           </div>
           <div class="time">${formatDateTime(new Date(game.time))}</div>
+          <div class="delete-btn">Delete</div>
         </li>
       `).join('') + '<li class="error-message">Failed to load data from Firestore</li>';
+
+      const historyScores = {
+        Amelia: [0, 1],
+        Elise: [0, -1],
+        Said: [0, -1]
+      };
+      const historyChart = new Chart(document.getElementById('history-chart').getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: ['Game 1', 'Game 2'],
+          datasets: fallbackPodium.map((player, index) => ({
+            label: player.name,
+            data: historyScores[player.name] || [0, 0],
+            borderColor: ['#FFD8A9', '#FFA500', '#D2691E'][index],
+            backgroundColor: ['#FFD8A9', '#FFA500', '#D2691E'][index],
+            fill: false,
+            pointBackgroundColor: ['#E6C08F', '#CC8400', '#A75217'][index],
+            pointBorderColor: ['#E6C08F', '#CC8400', '#A75217'][index],
+            tension: 0.4,
+            pointRadius: function(context) {
+              return context.dataIndex % 5 === 0 ? 4 : 0;
+            }
+          }))
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {},
+            x: { title: { display: true, text: 'Game' } }
+          },
+          plugins: {
+            title: { display: true, text: 'Match History Score' },
+            legend: { display: true }
+          }
+        }
+      });
+
+      const winrateChart = new Chart(document.getElementById('winrate-chart').getContext('2d'), {
+        type: 'pie',
+        data: {
+          labels: fallbackPodium.map(player => player.name),
+          datasets: [{
+            label: 'Win Rate',
+            data: fallbackPodium.map(player => ((player.wins / (player.wins + player.losses)) * 100).toFixed(0)),
+            backgroundColor: ['#FFD8A9', '#FFA500', '#D2691E'],
+            borderColor: '#E6C08F',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom' },
+            title: { display: true, text: 'Win Rate Distribution' },
+            datalabels: {
+              color: '#333',
+              formatter: (value) => value + '%',
+              font: { weight: 'bold', size: 12 }
+            }
+          }
+        },
+        plugins: [ChartDataLabels]
+      });
     }
 
     function formatDateTime(timestamp) {
@@ -417,27 +759,152 @@
       return `${day}-${month} ${hours}h${minutes}`;
     }
 
-    async function updatePlayerDropdowns() {
+    function formatDate(timestamp) {
+      const date = new Date(timestamp);
+      return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+    }
+
+    async function updatePlayerRadioButtons() {
       try {
+        const gamesSnapshot = await getDocs(collection(db, 'games'));
+        let games = gamesSnapshot.docs.map(doc => {
+          const data = doc.data();
+          if (data.time && typeof data.time.toDate === 'function') {
+            data.time = data.time.toDate();
+          } else {
+            data.time = new Date(data.time || Date.now());
+          }
+          return data;
+        });
+
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        games = games.filter(game => game.time >= startOfToday);
+
+        const scores = {};
+        games.forEach(game => {
+          if (!game.win || !game.lose) return;
+          scores[game.win] = (scores[game.win] || 0) + 1;
+          scores[game.lose] = (scores[game.lose] || 0) - 1;
+        });
+
         const playersSnapshot = await getDocs(collection(db, 'players'));
         const players = playersSnapshot.docs.map(doc => doc.data());
 
-        const winnerSelect = document.getElementById('winner');
-        const loserSelect = document.getElementById('loser');
+        const playerMap = players.reduce((map, player) => {
+          map[player.name] = player.avatarUrl || "";
+          return map;
+        }, {});
 
-        winnerSelect.innerHTML = '<option value="" disabled selected>Select Winner</option>' + 
-          players.map(player => `<option value="${player.name}">${player.name}</option>`).join('');
-        loserSelect.innerHTML = '<option value="" disabled selected>Select Loser</option>' + 
-          players.map(player => `<option value="${player.name}">${player.name}</option>`).join('');
+        const sortedPlayers = Object.entries(scores)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([name]) => ({ name, avatarUrl: playerMap[name] || "" }));
+
+        const winnerRadioContainer = document.querySelector('#winnerRadio .avatar-container');
+        const loserRadioContainer = document.querySelector('#loserRadio .avatar-container');
+        winnerRadioContainer.innerHTML = sortedPlayers.map((player, index) => `
+          <div class="radio-item">
+            <input type="radio" id="winner${index}" name="winner" value="${player.name}">
+            <label for="winner${index}"><img src="${player.avatarUrl}" alt="${player.name}" class="avatar"></label>
+          </div>
+        `).join('');
+        loserRadioContainer.innerHTML = sortedPlayers.map((player, index) => `
+          <div class="radio-item">
+            <input type="radio" id="loser${index}" name="loser" value="${player.name}">
+            <label for="loser${index}"><img src="${player.avatarUrl}" alt="${player.name}" class="avatar"></label>
+          </div>
+        `).join('');
+
+        // Add event listeners for dynamic styling
+        document.querySelectorAll('input[name="winner"]').forEach(radio => {
+          radio.addEventListener('change', () => {
+            const avatars = document.querySelectorAll('#winnerRadio .radio-item .avatar');
+            avatars.forEach(avatar => {
+              const input = avatar.parentElement.previousElementSibling;
+              if (input.checked) {
+                avatar.style.borderColor = '#28a745';
+                avatar.style.opacity = '1';
+                avatar.style.filter = 'none';
+              } else {
+                avatar.style.borderColor = '#ccc';
+                avatar.style.opacity = '0.3';
+                avatar.style.filter = 'grayscale(100%)';
+              }
+            });
+          });
+        });
+
+        document.querySelectorAll('input[name="loser"]').forEach(radio => {
+          radio.addEventListener('change', () => {
+            const avatars = document.querySelectorAll('#loserRadio .radio-item .avatar');
+            avatars.forEach(avatar => {
+              const input = avatar.parentElement.previousElementSibling;
+              if (input.checked) {
+                avatar.style.borderColor = '#dc3545';
+                avatar.style.opacity = '1';
+                avatar.style.filter = 'none';
+              } else {
+                avatar.style.borderColor = '#ccc';
+                avatar.style.opacity = '0.3';
+                avatar.style.filter = 'grayscale(100%)';
+              }
+            });
+          });
+        });
       } catch (error) {
-        console.error("Error updating dropdowns:", error);
-        const defaultPlayers = ['Amelia', 'Elise', 'Said', 'HaoB', 'Sip'].map(name => ({ name, avatarUrl: "" }));
-        const winnerSelect = document.getElementById('winner');
-        const loserSelect = document.getElementById('loser');
-        winnerSelect.innerHTML = '<option value="" disabled selected>Select Winner</option>' + 
-          defaultPlayers.map(player => `<option value="${player.name}">${player.name}</option>`).join('');
-        loserSelect.innerHTML = '<option value="" disabled selected>Select Loser</option>' + 
-          defaultPlayers.map(player => `<option value="${player.name}">${player.name}</option>`).join('');
+        console.error("Error updating radio buttons:", error.message);
+        const defaultPlayers = fallbackPodium.map(p => ({ name: p.name, avatarUrl: p.avatarUrl || "" }));
+        const winnerRadioContainer = document.querySelector('#winnerRadio .avatar-container');
+        const loserRadioContainer = document.querySelector('#loserRadio .avatar-container');
+        winnerRadioContainer.innerHTML = defaultPlayers.map((player, index) => `
+          <div class="radio-item">
+            <input type="radio" id="winner${index}" name="winner" value="${player.name}">
+            <label for="winner${index}"><img src="${player.avatarUrl}" alt="${player.name}" class="avatar"></label>
+          </div>
+        `).join('');
+        loserRadioContainer.innerHTML = defaultPlayers.map((player, index) => `
+          <div class="radio-item">
+            <input type="radio" id="loser${index}" name="loser" value="${player.name}">
+            <label for="loser${index}"><img src="${player.avatarUrl}" alt="${player.name}" class="avatar"></label>
+          </div>
+        `).join('');
+
+        document.querySelectorAll('input[name="winner"]').forEach(radio => {
+          radio.addEventListener('change', () => {
+            const avatars = document.querySelectorAll('#winnerRadio .radio-item .avatar');
+            avatars.forEach(avatar => {
+              const input = avatar.parentElement.previousElementSibling;
+              if (input.checked) {
+                avatar.style.borderColor = '#28a745';
+                avatar.style.opacity = '1';
+                avatar.style.filter = 'none';
+              } else {
+                avatar.style.borderColor = '#ccc';
+                avatar.style.opacity = '0.3';
+                avatar.style.filter = 'grayscale(100%)';
+              }
+            });
+          });
+        });
+
+        document.querySelectorAll('input[name="loser"]').forEach(radio => {
+          radio.addEventListener('change', () => {
+            const avatars = document.querySelectorAll('#loserRadio .radio-item .avatar');
+            avatars.forEach(avatar => {
+              const input = avatar.parentElement.previousElementSibling;
+              if (input.checked) {
+                avatar.style.borderColor = '#dc3545';
+                avatar.style.opacity = '1';
+                avatar.style.filter = 'none';
+              } else {
+                avatar.style.borderColor = '#ccc';
+                avatar.style.opacity = '0.3';
+                avatar.style.filter = 'grayscale(100%)';
+              }
+            });
+          });
+        });
       }
     }
 
@@ -446,19 +913,24 @@
         const gamesSnapshot = await getDocs(collection(db, 'games'));
         let games = gamesSnapshot.docs.map(doc => {
           const data = doc.data();
-          if (data.time && data.time.toDate) {
+          if (data.time && typeof data.time.toDate === 'function') {
             data.time = data.time.toDate();
+          } else {
+            data.time = new Date(data.time || Date.now());
           }
           return data;
         });
 
-        // Filter games based on selected period
         const now = new Date();
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const dayOfWeek = now.getDay();
+        const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
 
         if (filter === 'today') {
           games = games.filter(game => game.time >= startOfToday);
+        } else if (filter === 'week') {
+          games = games.filter(game => game.time >= startOfWeek);
         } else if (filter === 'month') {
           games = games.filter(game => game.time >= startOfMonth);
         }
@@ -466,6 +938,7 @@
         const scores = {};
         const winLoss = {};
         games.forEach(game => {
+          if (!game.win || !game.lose) return;
           scores[game.win] = (scores[game.win] || 0) + 1;
           scores[game.lose] = (scores[game.lose] || 0) - 1;
           winLoss[game.win] = (winLoss[game.win] || { wins: 0, losses: 0 });
@@ -538,96 +1011,620 @@
           ` : ''}
         `;
       } catch (error) {
-        console.error("Error updating podium:", error);
+        console.error("Error updating podium:", error.message);
         renderFallback();
       }
     }
 
-    async function updateRanking(filter = 'all') {
+    async function updateHistory(filter = 'all') {
       try {
         const gamesSnapshot = await getDocs(collection(db, 'games'));
         let games = gamesSnapshot.docs.map(doc => {
           const data = doc.data();
-          if (data.time && data.time.toDate) {
+          data.id = doc.id; // Store the document ID for deletion
+          if (data.time && typeof data.time.toDate === 'function') {
             data.time = data.time.toDate();
+          } else {
+            data.time = new Date(data.time || Date.now());
           }
           return data;
         });
 
-        // Filter games based on selected period
         const now = new Date();
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const dayOfWeek = now.getDay();
+        const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
 
         if (filter === 'today') {
           games = games.filter(game => game.time >= startOfToday);
+        } else if (filter === 'week') {
+          games = games.filter(game => game.time >= startOfWeek);
         } else if (filter === 'month') {
           games = games.filter(game => game.time >= startOfMonth);
         }
 
         games.sort((a, b) => b.time - a.time);
 
-        const ranking = document.getElementById('ranking');
-        ranking.innerHTML = games.length > 0 ? games.map((game, index) => `
-          <li>
+        const historyList = document.getElementById('history-list');
+        historyList.innerHTML = games.length > 0 ? games.map((game, index) => `
+          <li data-id="${game.id}">
             <span>${index + 1}</span>
             <div class="game-info">
               Win: 
-              <span class="win"><span class="player-name">${game.win}</span></span>, Lose: 
-              <span class="lose"><span class="player-name">${game.lose}</span></span>
+              <span class="win"><span class="player-name">${game.win || 'Unknown'}</span></span>, Lose: 
+              <span class="lose"><span class="player-name">${game.lose || 'Unknown'}</span></span>
             </div>
             <div class="time">${formatDateTime(game.time)}</div>
+            <div class="delete-btn">Delete</div>
           </li>
         `).join('') : '<li class="error-message">No games found for this period</li>';
+
+        addSwipeFunctionality();
       } catch (error) {
-        console.error("Error updating ranking:", error);
+        console.error("Error updating history:", error.message);
         renderFallback();
       }
     }
 
-    document.getElementById('gameForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const winner = document.getElementById('winner').value;
-      const loser = document.getElementById('loser').value;
+    function addSwipeFunctionality() {
+      const items = document.querySelectorAll('.history-list li');
+      items.forEach(item => {
+        let touchStartX = 0;
+        let touchEndX = 0;
+        let isSwiping = false;
+
+        item.addEventListener('touchstart', (e) => {
+          touchStartX = e.changedTouches[0].screenX;
+          isSwiping = true;
+        });
+
+        item.addEventListener('touchmove', (e) => {
+          if (!isSwiping) return;
+          touchEndX = e.changedTouches[0].screenX;
+          const diffX = touchEndX - touchStartX;
+          if (diffX < 0) {
+            item.style.transform = `translateX(${Math.max(diffX, -80)}px)`;
+            const deleteBtn = item.querySelector('.delete-btn');
+            deleteBtn.style.right = `${Math.min(-diffX, 80)}px`;
+          }
+        });
+
+        item.addEventListener('touchend', () => {
+          isSwiping = false;
+          const diffX = touchEndX - touchStartX;
+          const deleteBtn = item.querySelector('.delete-btn');
+          if (diffX < -40) {
+            const gameInfo = item.querySelector('.game-info').innerText;
+            showCustomPopup('delete', { gameInfo, id: item.dataset.id });
+          } else {
+            item.style.transform = 'translateX(0)';
+            deleteBtn.style.right = '-80px';
+          }
+        });
+      });
+    }
+
+    async function deleteGame(gameId) {
+      try {
+        await deleteDoc(doc(db, 'games', gameId));
+        const activeFilter = document.querySelector('.filter-buttons button.active')?.dataset.filter || 'all';
+        const activeTab = document.querySelector('.tab-buttons button.active')?.dataset.tab || 'history';
+        await updatePodium(activeFilter);
+        if (activeTab === 'history') {
+          await updateHistory(activeFilter);
+        } else {
+          await updateStatistics(activeFilter);
+        }
+      } catch (error) {
+        console.error("Error deleting game:", error.message);
+        alert("Failed to delete game. Please try again.");
+      }
+    }
+
+    let winrateChart = null;
+    let historyChart = null;
+    let cumulativeWinsChart = null;
+    let radarChart = null;
+
+    async function updateStatistics(filter = 'all') {
+      try {
+        const gamesSnapshot = await getDocs(collection(db, 'games'));
+        let games = gamesSnapshot.docs.map(doc => {
+          const data = doc.data();
+          if (data.time && typeof data.time.toDate === 'function') {
+            data.time = data.time.toDate();
+          } else {
+            data.time = new Date(data.time || Date.now());
+          }
+          if (!data.win || !data.lose) {
+            console.warn("Game data missing win/lose fields:", data);
+            return null;
+          }
+          return data;
+        }).filter(game => game !== null);
+
+        console.log("Games fetched:", games);
+
+        if (!games || games.length === 0) {
+          console.warn("No valid games available for the selected filter period.");
+          throw new Error("No valid games available for the selected filter period.");
+        }
+
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const dayOfWeek = now.getDay();
+        const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+
+        if (filter === 'today') {
+          games = games.filter(game => game.time >= startOfToday);
+        } else if (filter === 'week') {
+          games = games.filter(game => game.time >= startOfWeek);
+        } else if (filter === 'month') {
+          games = games.filter(game => game.time >= startOfMonth);
+        }
+
+        console.log("Games after filtering:", games);
+
+        if (games.length === 0) {
+          console.warn("No games after filtering for the selected period.");
+          throw new Error("No games after filtering for the selected period.");
+        }
+
+        const winLoss = {};
+        const scores = {};
+        const matchesPlayed = {};
+
+        games.forEach(game => {
+          winLoss[game.win] = (winLoss[game.win] || { wins: 0, losses: 0 });
+          winLoss[game.lose] = (winLoss[game.lose] || { wins: 0, losses: 0 });
+          winLoss[game.win].wins += 1;
+          winLoss[game.lose].losses += 1;
+
+          scores[game.win] = (scores[game.win] || 0) + 1;
+          scores[game.lose] = (scores[game.lose] || 0) - 1;
+
+          matchesPlayed[game.win] = (matchesPlayed[game.win] || 0) + 1;
+          matchesPlayed[game.lose] = (matchesPlayed[game.lose] || 0) + 1;
+        });
+
+        const playersSnapshot = await getDocs(collection(db, 'players'));
+        const players = playersSnapshot.docs.map(doc => {
+          const data = doc.data();
+          if (!data.name) {
+            console.warn("Player data missing name field:", data);
+            return null;
+          }
+          return data;
+        }).filter(player => player !== null);
+
+        console.log("Players fetched:", players);
+
+        if (!players || players.length === 0) {
+          console.warn("No valid players found.");
+          throw new Error("No valid players found.");
+        }
+
+        const totalMatches = games.length;
+        const statsData = players.map(player => {
+          const stats = winLoss[player.name] || { wins: 0, losses: 0 };
+          const totalGames = stats.wins + stats.losses;
+          const winRate = totalGames > 0 ? ((stats.wins / totalGames) * 100).toFixed(0) : 0;
+          const matches = matchesPlayed[player.name] || 0;
+          const tron = totalMatches - matches;
+          return {
+            name: player.name,
+            wins: stats.wins,
+            losses: stats.losses,
+            winRate: parseFloat(winRate),
+            totalGames,
+            tron
+          };
+        }).filter(player => player.totalGames > 0);
+
+        console.log("Stats data:", statsData);
+
+        if (statsData.length === 0) {
+          console.warn("No players with games in the selected filter period.");
+          throw new Error("No players with games in the selected filter period.");
+        }
+
+        const sortedPlayers = Object.entries(scores)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([name]) => name);
+
+        console.log("Top 3 players:", sortedPlayers);
+
+        if (sortedPlayers.length === 0) {
+          console.warn("No top players found for the match history chart.");
+          throw new Error("No top players found for the match history chart.");
+        }
+
+        const colorMap = {};
+        const baseColors = ['#FFD8A9', '#FFA500', '#D2691E', '#E6C08F', '#CC8400'];
+        statsData.forEach((player, index) => {
+          colorMap[player.name] = baseColors[index % baseColors.length];
+        });
+
+        if (historyChart) historyChart.destroy();
+        if (winrateChart) winrateChart.destroy();
+        if (cumulativeWinsChart) cumulativeWinsChart.destroy();
+        if (radarChart) radarChart.destroy();
+
+        const historyCtx = document.getElementById('history-chart').getContext('2d');
+        games.sort((a, b) => a.time - b.time);
+        const cumulativeScores = {};
+        sortedPlayers.forEach(player => {
+          cumulativeScores[player] = [0];
+        });
+        games.forEach(game => {
+          sortedPlayers.forEach(player => {
+            let lastScore = cumulativeScores[player][cumulativeScores[player].length - 1];
+            if (game.win === player) {
+              cumulativeScores[player].push(lastScore + 1);
+            } else if (game.lose === player) {
+              cumulativeScores[player].push(lastScore - 1);
+            } else {
+              cumulativeScores[player].push(lastScore);
+            }
+          });
+        });
+        const totalGames = games.length + 1;
+        const labels = Array.from({ length: totalGames }, (_, i) => `Game ${i}`);
+        const displayLabels = labels.map((label, index) => {
+          if (index === 0 || index === labels.length - 1) return label;
+          return '';
+        });
+        const datasets = sortedPlayers.map(player => ({
+          label: player || 'Unknown',
+          data: cumulativeScores[player],
+          borderColor: colorMap[player],
+          backgroundColor: colorMap[player],
+          fill: false,
+          pointBackgroundColor: colorMap[player],
+          pointBorderColor: colorMap[player],
+          tension: 0.4,
+          pointRadius: 4
+        }));
+        historyChart = new Chart(historyCtx, {
+          type: 'line',
+          data: {
+            labels: displayLabels.length > 0 ? displayLabels : ['No Data'],
+            datasets: datasets.length > 0 ? datasets : [{
+              label: 'No Data',
+              data: [0],
+              borderColor: '#FFD8A9',
+              backgroundColor: '#FFD8A9',
+              fill: false,
+              pointBackgroundColor: '#FFD8A9',
+              pointBorderColor: '#FFD8A9',
+              tension: 0.4,
+              pointRadius: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: { beginAtZero: true },
+              x: { title: { display: true, text: 'Game' } }
+            },
+            plugins: {
+              title: { display: true, text: 'Match History Score' },
+              legend: { display: true }
+            }
+          }
+        });
+
+        const winrateCtx = document.getElementById('winrate-chart').getContext('2d');
+        winrateChart = new Chart(winrateCtx, {
+          type: 'pie',
+          data: {
+            labels: statsData.map(player => player.name),
+            datasets: [{
+              label: 'Win Rate',
+              data: statsData.map(player => player.winRate),
+              backgroundColor: statsData.map(player => colorMap[player.name]),
+              borderColor: '#E6C08F',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'bottom' },
+              title: { display: true, text: 'Win Rate Distribution' },
+              datalabels: {
+                color: '#333',
+                formatter: (value) => value + '%',
+                font: { weight: 'bold', size: 12 }
+              }
+            }
+          },
+          plugins: [ChartDataLabels]
+        });
+
+        const radarCtx = document.getElementById('radar-chart').getContext('2d');
+        const radarData = sortedPlayers.map(player => {
+          const playerStats = statsData.find(p => p.name === player);
+          return {
+            name: player,
+            wins: winLoss[player]?.wins || 0,
+            losses: winLoss[player]?.losses || 0,
+            tron: playerStats?.tron || 0
+          };
+        });
+        const maxRadarValue = Math.max(...radarData.flatMap(d => [d.wins, d.losses, d.tron]), 5) * 1.1;
+        radarChart = new Chart(radarCtx, {
+          type: 'radar',
+          data: {
+            labels: ['Wins', 'Losses', 'Trốn'],
+            datasets: radarData.map(player => ({
+              label: player.name,
+              data: [player.wins, player.losses, player.tron],
+              backgroundColor: `${colorMap[player.name]}40`,
+              borderColor: colorMap[player.name],
+              borderWidth: 2
+            }))
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { 
+              r: { 
+                beginAtZero: true, 
+                max: maxRadarValue,
+                ticks: { stepSize: Math.ceil(maxRadarValue / 5) }
+              }
+            },
+            plugins: {
+              title: { display: true, text: 'Player Stats (Wins, Losses, Trốn)' },
+              legend: { position: 'bottom' }
+            }
+          }
+        });
+
+        const cumulativeWinsCtx = document.getElementById('cumulative-wins-chart').getContext('2d');
+        const cumulativeWinsData = {};
+        statsData.forEach(player => {
+          cumulativeWinsData[player.name] = [0];
+        });
+        const dateLabels = games.map(game => formatDate(game.time));
+        games.forEach(game => {
+          statsData.forEach(player => {
+            let lastWins = cumulativeWinsData[player.name][cumulativeWinsData[player.name].length - 1];
+            if (game.win === player.name) {
+              cumulativeWinsData[player.name].push(lastWins + 1);
+            } else {
+              cumulativeWinsData[player.name].push(lastWins);
+            }
+          });
+        });
+        const winsDatasets = statsData.map(player => ({
+          label: player.name,
+          data: cumulativeWinsData[player.name],
+          borderColor: colorMap[player.name],
+          backgroundColor: colorMap[player.name],
+          fill: false,
+          pointBackgroundColor: colorMap[player.name],
+          pointBorderColor: colorMap[player.name],
+          tension: 0.4,
+          pointRadius: 4
+        }));
+        cumulativeWinsChart = new Chart(cumulativeWinsCtx, {
+          type: 'line',
+          data: {
+            labels: dateLabels.length > 0 ? dateLabels : ['No Data'],
+            datasets: winsDatasets.length > 0 ? winsDatasets : [{
+              label: 'No Data',
+              data: [0],
+              borderColor: '#FFD8A9',
+              backgroundColor: '#FFD8A9',
+              fill: false,
+              pointBackgroundColor: '#FFD8A9',
+              pointBorderColor: '#FFD8A9',
+              tension: 0.4,
+              pointRadius: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: { beginAtZero: true, title: { display: true, text: 'Wins' } },
+              x: { 
+                title: { display: true, text: 'Date' },
+                ticks: { autoSkip: true, maxRotation: 45, minRotation: 45 }
+              }
+            },
+            plugins: {
+              title: { display: true, text: 'Cumulative Wins Over Time' },
+              legend: { display: true }
+            }
+          }
+        });
+
+      } catch (error) {
+        console.error("Error updating statistics:", error.message, error.stack);
+        if (historyChart) historyChart.destroy();
+        if (winrateChart) winrateChart.destroy();
+        if (cumulativeWinsChart) cumulativeWinsChart.destroy();
+        if (radarChart) radarChart.destroy();
+
+        const historyCtx = document.getElementById('history-chart').getContext('2d');
+        historyChart = new Chart(historyCtx, {
+          type: 'line',
+          data: {
+            labels: ['No Data'],
+            datasets: [{ label: 'No Data', data: [0], borderColor: '#FFD8A9', backgroundColor: '#FFD8A9', fill: false }]
+          },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { title: { text: 'Match History Score' } } }
+        });
+
+        const winrateCtx = document.getElementById('winrate-chart').getContext('2d');
+        winrateChart = new Chart(winrateCtx, {
+          type: 'pie',
+          data: { labels: ['No Data'], datasets: [{ data: [100], backgroundColor: ['#FFD8A9'] }] },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { title: { text: 'Win Rate Distribution' } } }
+        });
+
+        const radarCtx = document.getElementById('radar-chart').getContext('2d');
+        radarChart = new Chart(radarCtx, {
+          type: 'radar',
+          data: { labels: ['Wins', 'Losses', 'Trốn'], datasets: [{ label: 'No Data', data: [0, 0, 0], backgroundColor: 'rgba(255, 165, 97, 0.2)' }] },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { title: { text: 'Player Stats (Wins, Losses, Trốn)' } } }
+        });
+
+        const cumulativeWinsCtx = document.getElementById('cumulative-wins-chart').getContext('2d');
+        cumulativeWinsChart = new Chart(cumulativeWinsCtx, {
+          type: 'line',
+          data: { labels: ['No Data'], datasets: [{ label: 'No Data', data: [0], borderColor: '#FFD8A9', backgroundColor: '#FFD8A9', fill: false }] },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { title: { text: 'Cumulative Wins Over Time' } } }
+        });
+      }
+    }
+
+    function showCustomPopup(action, data) {
+      const overlay = document.getElementById('modal-overlay');
+      const modal = document.getElementById('modal');
+      const content = document.getElementById('modal-content');
+      const confirmBtn = document.getElementById('confirm-btn');
+      const cancelBtn = document.getElementById('cancel-btn');
+
+      if (action === 'add') {
+        const winner = data.winner || 'Unknown';
+        const loser = data.loser || 'Unknown';
+        content.innerHTML = `
+          <p>Confirm adding new game result?</p>
+          <p>Winner: <span class="winner-name">${winner}</span></p>
+          <p>Loser: <span class="loser-name">${loser}</span></p>
+        `;
+      } else if (action === 'delete') {
+        const gameInfo = data.gameInfo || 'Unknown game';
+        content.innerHTML = `
+          <p>Confirm deleting game?</p>
+          <p>${gameInfo}</p>
+        `;
+      }
+
+      overlay.style.display = 'flex';
+      modal.style.display = 'block';
+
+      confirmBtn.onclick = () => {
+        if (action === 'add') {
+          addNewGame(data.winner, data.loser);
+        } else if (action === 'delete') {
+          deleteGame(data.id);
+        }
+        overlay.style.display = 'none';
+        modal.style.display = 'none';
+      };
+
+      cancelBtn.onclick = () => {
+        overlay.style.display = 'none';
+        modal.style.display = 'none';
+      };
+    }
+
+    async function addNewGame(winner, loser) {
+      try {
+        await addDoc(collection(db, 'games'), {
+          time: new Date(),
+          win: winner,
+          lose: loser
+        });
+
+        const activeFilter = document.querySelector('.filter-buttons button.active')?.dataset.filter || 'all';
+        const activeTab = document.querySelector('.tab-buttons button.active')?.dataset.tab || 'history';
+        
+        await updatePodium(activeFilter);
+        if (activeTab === 'history') {
+          await updateHistory(activeFilter);
+        } else {
+          await updateStatistics(activeFilter);
+        }
+        await updatePlayerRadioButtons();
+        document.querySelectorAll('input[name="winner"]').forEach(radio => radio.checked = false);
+        document.querySelectorAll('input[name="loser"]').forEach(radio => radio.checked = false);
+        document.querySelectorAll('#winnerRadio .radio-item .avatar').forEach(avatar => {
+          avatar.style.borderColor = '#ccc';
+          avatar.style.opacity = '1';
+          avatar.style.filter = 'none';
+        });
+        document.querySelectorAll('#loserRadio .radio-item .avatar').forEach(avatar => {
+          avatar.style.borderColor = '#ccc';
+          avatar.style.opacity = '1';
+          avatar.style.filter = 'none';
+        });
+      } catch (error) {
+        console.error("Error adding game result:", error.message);
+        alert("Failed to add game result. Please try again.");
+      }
+    }
+
+    document.getElementById('submitGame').addEventListener('click', () => {
+      const winner = document.querySelector('input[name="winner"]:checked')?.value;
+      const loser = document.querySelector('input[name="loser"]:checked')?.value;
 
       if (winner && loser && winner !== loser) {
-        try {
-          await addDoc(collection(db, 'games'), {
-            time: new Date(),
-            win: winner,
-            lose: loser
-          });
-
-          const activeFilter = document.querySelector('.filter-buttons button.active')?.dataset.filter || 'all';
-          await updatePodium(activeFilter);
-          await updateRanking(activeFilter);
-          await updatePlayerDropdowns();
-          document.getElementById('gameForm').reset();
-        } catch (error) {
-          console.error("Error adding game result:", error);
-          alert("Failed to add game result. Please try again.");
-        }
+        showCustomPopup('add', { winner, loser });
       } else {
         alert("Please select different players for winner and loser.");
       }
     });
 
-    // Filter button event listeners
     const filterButtons = document.querySelectorAll('.filter-buttons button');
     filterButtons.forEach(button => {
       button.addEventListener('click', () => {
         filterButtons.forEach(btn => btn.classList.remove('active'));
         button.classList.add('active');
         const filter = button.dataset.filter;
+        const activeTab = document.querySelector('.tab-buttons button.active')?.dataset.tab || 'history';
+        
         updatePodium(filter);
-        updateRanking(filter);
+        if (activeTab === 'history') {
+          updateHistory(filter);
+        } else {
+          updateStatistics(filter);
+        }
       });
     });
 
-    // Initialize with 'today' filter
+    const tabButtons = document.querySelectorAll('.tab-buttons button');
+    tabButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        tabButtons.forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+        
+        const tab = button.dataset.tab;
+        const history = document.getElementById('history');
+        const statistics = document.getElementById('statistics');
+        const actionButtons = document.querySelector('.action-buttons');
+        const activeFilter = document.querySelector('.filter-buttons button.active')?.dataset.filter || 'all';
+
+        history.classList.remove('active');
+        statistics.classList.remove('active');
+        actionButtons.classList.add('hidden');
+
+        if (tab === 'history') {
+          history.classList.add('active');
+          statistics.classList.remove('active'); // Ensure statistics (charts) are hidden
+          actionButtons.classList.remove('hidden');
+          updateHistory(activeFilter);
+        } else {
+          statistics.classList.add('active');
+          history.classList.remove('active');
+          updateStatistics(activeFilter);
+        }
+      });
+    });
+
     updatePodium('today');
-    updateRanking('today');
-    updatePlayerDropdowns();
+    updateHistory('today');
+    updatePlayerRadioButtons();
   </script>
 </body>
 </html>
