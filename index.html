@@ -265,9 +265,7 @@
       background: #f9f9f9;
       border-radius: 8px;
       margin: 0.5rem 0;
-      transition: background 0.2s, transform 0.3s;
-      position: relative;
-      overflow: hidden;
+      transition: background 0.2s;
     }
 
     .history-list li:hover {
@@ -295,27 +293,6 @@
       font-size: 12px;
       color: #666;
       text-align: right;
-    }
-
-    .history-list .delete-btn {
-      position: absolute;
-      right: -80px;
-      top: 0;
-      bottom: 0;
-      width: 80px;
-      background: #dc3545;
-      color: white;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 14px;
-      font-weight: bold;
-      transition: right 0.3s;
-      cursor: pointer;
-    }
-
-    .history-list li.swipe-delete .delete-btn {
-      right: 0;
     }
 
     .statistics {
@@ -688,7 +665,6 @@
             <span class="win">Win: <span class="player-name">${game.win}</span></span>, <span class="lose">Lose: <span class="player-name">${game.lose}</span></span>
           </div>
           <div class="time">${formatDateTime(new Date(game.time))}</div>
-          <div class="delete-btn">Delete</div>
         </li>
       `).join('') + '<li class="error-message">Failed to load data from Firestore</li>';
 
@@ -1038,51 +1014,40 @@ async function updatePlayerRadioButtons() {
               <span class="lose"><span class="player-name">${game.lose || 'Unknown'}</span></span>
             </div>
             <div class="time">${formatDateTime(game.time)}</div>
-            <div class="delete-btn">Delete</div>
           </li>
         `).join('') : '<li class="error-message">No games found for this period</li>';
 
-        addSwipeFunctionality();
+        addLongTouchFunctionality();
       } catch (error) {
         console.error("Error updating history:", error.message);
         renderFallback();
       }
     }
 
-    function addSwipeFunctionality() {
+    function addLongTouchFunctionality() {
       const items = document.querySelectorAll('.history-list li');
       items.forEach(item => {
-        let touchStartX = 0;
-        let touchEndX = 0;
-        let isSwiping = false;
+        let longPressTimer;
 
         item.addEventListener('touchstart', (e) => {
-          touchStartX = e.changedTouches[0].screenX;
-          isSwiping = true;
-        });
-
-        item.addEventListener('touchmove', (e) => {
-          if (!isSwiping) return;
-          touchEndX = e.changedTouches[0].screenX;
-          const diffX = touchEndX - touchStartX;
-          if (diffX < 0) {
-            item.style.transform = `translateX(${Math.max(diffX, -80)}px)`;
-            const deleteBtn = item.querySelector('.delete-btn');
-            deleteBtn.style.right = `${Math.min(-diffX, 80)}px`;
-          }
+          e.preventDefault();
+          longPressTimer = setTimeout(() => {
+            const gameInfo = item.querySelector('.game-info').innerText;
+            showCustomPopup('delete', { gameInfo, id: item.dataset.id });
+          }, 500); // 500ms for long press
         });
 
         item.addEventListener('touchend', () => {
-          isSwiping = false;
-          const diffX = touchEndX - touchStartX;
-          const deleteBtn = item.querySelector('.delete-btn');
-          if (diffX < -40) {
-            const gameInfo = item.querySelector('.game-info').innerText;
-            showCustomPopup('delete', { gameInfo, id: item.dataset.id });
-          } else {
-            item.style.transform = 'translateX(0)';
-            deleteBtn.style.right = '-80px';
-          }
+          clearTimeout(longPressTimer);
+        });
+
+        item.addEventListener('touchmove', () => {
+          clearTimeout(longPressTimer);
+        });
+
+        // Prevent context menu on long press for better UX
+        item.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
         });
       });
     }
@@ -1212,16 +1177,14 @@ async function updatePlayerRadioButtons() {
           throw new Error("No players with games in the selected filter period.");
         }
 
-        const sortedPlayers = Object.entries(scores)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 3)
-          .map(([name]) => name);
+        // Use the natural order of players from the database (no sorting)
+        const playerNames = players.map(player => player.name).filter(name => statsData.some(stat => stat.name === name));
 
-        console.log("Top 3 players:", sortedPlayers);
+        console.log("Players in natural order:", playerNames);
 
-        if (sortedPlayers.length === 0) {
-          console.warn("No top players found for the match history chart.");
-          throw new Error("No top players found for the match history chart.");
+        if (playerNames.length === 0) {
+          console.warn("No players found for the match history chart.");
+          throw new Error("No players found for the match history chart.");
         }
 
         const colorMap = {};
@@ -1235,14 +1198,15 @@ async function updatePlayerRadioButtons() {
         if (cumulativeWinsChart) cumulativeWinsChart.destroy();
         if (radarChart) radarChart.destroy();
 
+        // Match History Chart
         const historyCtx = document.getElementById('history-chart').getContext('2d');
         games.sort((a, b) => a.time - b.time);
         const cumulativeScores = {};
-        sortedPlayers.forEach(player => {
+        playerNames.forEach(player => {
           cumulativeScores[player] = [0];
         });
         games.forEach(game => {
-          sortedPlayers.forEach(player => {
+          playerNames.forEach(player => {
             let lastScore = cumulativeScores[player][cumulativeScores[player].length - 1];
             if (game.win === player) {
               cumulativeScores[player].push(lastScore + 1);
@@ -1259,7 +1223,7 @@ async function updatePlayerRadioButtons() {
           if (index === 0 || index === labels.length - 1) return label;
           return '';
         });
-        const datasets = sortedPlayers.map(player => ({
+        const datasets = playerNames.map(player => ({
           label: player || 'Unknown',
           data: cumulativeScores[player],
           borderColor: colorMap[player],
@@ -1300,6 +1264,7 @@ async function updatePlayerRadioButtons() {
           }
         });
 
+        // Win Rate Chart
         const winrateCtx = document.getElementById('winrate-chart').getContext('2d');
         winrateChart = new Chart(winrateCtx, {
           type: 'pie',
@@ -1329,8 +1294,9 @@ async function updatePlayerRadioButtons() {
           plugins: [ChartDataLabels]
         });
 
+        // Radar Chart
         const radarCtx = document.getElementById('radar-chart').getContext('2d');
-        const radarData = sortedPlayers.map(player => {
+        const radarData = playerNames.map(player => {
           const playerStats = statsData.find(p => p.name === player);
           return {
             name: player,
@@ -1369,6 +1335,7 @@ async function updatePlayerRadioButtons() {
           }
         });
 
+        // Cumulative Wins Chart
         const cumulativeWinsCtx = document.getElementById('cumulative-wins-chart').getContext('2d');
         const cumulativeWinsData = {};
         statsData.forEach(player => {
