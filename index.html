@@ -103,8 +103,8 @@
 
     .podium-box.first .bar {
       background: linear-gradient(45deg, #d84315, #ff8c61);
-      width: 80px;
-      height: 110px;
+      width: 75px;
+      height: 100px;
       transform: scale(1.15);
       box-shadow: 0 6px 12px rgba(216, 67, 21, 0.3);
       border: 2px solid #d84315;
@@ -112,8 +112,8 @@
 
     .podium-box.second .bar {
       background: linear-gradient(45deg, #ff9872, #ff8c61);
-      width: 75px;
-      height: 90px;
+      width: 70px;
+      height: 80px;
       transform: scale(1.05);
       box-shadow: 0 4px 8px rgba(255, 152, 114, 0.2);
       border: 2px solid #ff9872;
@@ -121,8 +121,8 @@
 
     .podium-box.third .bar {
       background: linear-gradient(45deg, #ffe0d6, #ff8c61);
-      width: 70px;
-      height: 85px;
+      width: 65px;
+      height: 75px;
       box-shadow: 0 3px 6px rgba(255, 224, 214, 0.15);
       border: 2px solid #ffe0d6;
     }
@@ -133,13 +133,13 @@
     }
 
     .bar .player-name {
-      font-size: 14px;
+      font-size: 12px;
       font-weight: bold;
       margin: 5px 0;
     }
 
     .bar .stats {
-      font-size: 12px;
+      font-size: 10px;
       line-height: 1.2;
       padding: 0 5px;
     }
@@ -158,7 +158,7 @@
       border-radius: 20px;
       background: #f5f5f5;
       color: #333;
-      font-size: 14px;
+      font-size: 12px;
       font-weight: 500;
       cursor: pointer;
       transition: all 0.3s ease;
@@ -362,7 +362,7 @@
     }
 
     .action-buttons {
-      display: none;
+      display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
@@ -390,12 +390,13 @@
       font-size: 12px;
       font-weight: bold;
       color: #ff8c61;
+      margin-right: 10px;
+      white-space: nowrap;
     }
 
     .action-buttons .radio-group {
       display: flex;
-      flex-direction: column;
-      justify-content: center;
+      flex-direction: row;
       align-items: center;
       width: 100%;
       max-width: 300px;
@@ -405,14 +406,25 @@
 
     .action-buttons .radio-group .avatar-container {
       display: flex;
-      justify-content: center;
+      justify-content: space-evenly;
+      align-items: center; /* Vertically center items */
+      align-content: center; /* Center multiple rows if wrapped */
+      flex-wrap: wrap; /* Allow wrapping if there are many avatars */
       gap: 5px;
       width: 100%;
+      min-height: 50px; /* Ensure a minimum height for centering */
     }
 
     .action-buttons .radio-item {
-      position: relative;
-      cursor: pointer;
+      display: flex;
+      align-items: center; /* Vertically center the label and avatar */
+      cursor: pointer;  
+    }
+
+    .action-buttons .radio-item label {
+      margin: 0; /* Remove default margin to avoid misalignment */
+      display: flex;
+      align-items: center; /* Center the image within the label */
     }
 
     .action-buttons .radio-item input[type="radio"] {
@@ -578,16 +590,12 @@
     </div>
 
     <div class="action-buttons">
-      <div class="label-container">
-        <span class="radio-label">Winner:</span>
-      </div>
       <div class="radio-group" id="winnerRadio">
+        <span class="radio-label">Winner:</span>
         <div class="avatar-container"></div>
       </div>
-      <div class="label-container">
-        <span class="radio-label">Loser:</span>
-      </div>
       <div class="radio-group" id="loserRadio">
+        <span class="radio-label">Loser:</span>
         <div class="avatar-container"></div>
       </div>
       <button type="button" id="submitGame">Add Game Result</button>
@@ -764,149 +772,123 @@
       return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
     }
 
-    async function updatePlayerRadioButtons() {
-      try {
-        const gamesSnapshot = await getDocs(collection(db, 'games'));
-        let games = gamesSnapshot.docs.map(doc => {
-          const data = doc.data();
-          if (data.time && typeof data.time.toDate === 'function') {
-            data.time = data.time.toDate();
+async function updatePlayerRadioButtons() {
+  try {
+    const playersSnapshot = await getDocs(collection(db, 'players'));
+    const players = playersSnapshot.docs.map(doc => doc.data());
+
+    const playerList = players.map(player => ({
+      name: player.name,
+      avatarUrl: player.avatarUrl || ""
+    }));
+    console.log("List player:", playerList);
+
+    const winnerRadioContainer = document.querySelector('#winnerRadio .avatar-container');
+    const loserRadioContainer = document.querySelector('#loserRadio .avatar-container');
+    winnerRadioContainer.innerHTML = playerList.map((player, index) => `
+      <div class="radio-item">
+        <input type="radio" id="winner${index}" name="winner" value="${player.name}">
+        <label for="winner${index}"><img src="${player.avatarUrl}" alt="${player.name}" class="avatar"></label>
+      </div>
+    `).join('');
+    loserRadioContainer.innerHTML = playerList.map((player, index) => `
+      <div class="radio-item">
+        <input type="radio" id="loser${index}" name="loser" value="${player.name}">
+        <label for="loser${index}"><img src="${player.avatarUrl}" alt="${player.name}" class="avatar"></label>
+      </div>
+    `).join('');
+
+    // Add event listeners for dynamic styling
+    document.querySelectorAll('input[name="winner"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        const avatars = document.querySelectorAll('#winnerRadio .radio-item .avatar');
+        avatars.forEach(avatar => {
+          const input = avatar.parentElement.previousElementSibling;
+          if (input.checked) {
+            avatar.style.borderColor = '#28a745';
+            avatar.style.opacity = '1';
+            avatar.style.filter = 'none';
           } else {
-            data.time = new Date(data.time || Date.now());
+            avatar.style.borderColor = '#ccc';
+            avatar.style.opacity = '0.3';
+            avatar.style.filter = 'grayscale(100%)';
           }
-          return data;
         });
+      });
+    });
 
-        const now = new Date();
-        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        games = games.filter(game => game.time >= startOfToday);
-
-        const scores = {};
-        games.forEach(game => {
-          if (!game.win || !game.lose) return;
-          scores[game.win] = (scores[game.win] || 0) + 1;
-          scores[game.lose] = (scores[game.lose] || 0) - 1;
+    document.querySelectorAll('input[name="loser"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        const avatars = document.querySelectorAll('#loserRadio .radio-item .avatar');
+        avatars.forEach(avatar => {
+          const input = avatar.parentElement.previousElementSibling;
+          if (input.checked) {
+            avatar.style.borderColor = '#dc3545';
+            avatar.style.opacity = '1';
+            avatar.style.filter = 'none';
+          } else {
+            avatar.style.borderColor = '#ccc';
+            avatar.style.opacity = '0.3';
+            avatar.style.filter = 'grayscale(100%)';
+          }
         });
+      });
+    });
+  } catch (error) {
+    console.error("Error updating radio buttons:", error.message);
+    const defaultPlayers = fallbackPodium.map(p => ({ name: p.name, avatarUrl: p.avatarUrl || "" }));
+    const winnerRadioContainer = document.querySelector('#winnerRadio .avatar-container');
+    const loserRadioContainer = document.querySelector('#loserRadio .avatar-container');
+    winnerRadioContainer.innerHTML = defaultPlayers.map((player, index) => `
+      <div class="radio-item">
+        <input type="radio" id="winner${index}" name="winner" value="${player.name}">
+        <label for="winner${index}"><img src="${player.avatarUrl}" alt="${player.name}" class="avatar"></label>
+      </div>
+    `).join('');
+    loserRadioContainer.innerHTML = defaultPlayers.map((player, index) => `
+      <div class="radio-item">
+        <input type="radio" id="loser${index}" name="loser" value="${player.name}">
+        <label for="loser${index}"><img src="${player.avatarUrl}" alt="${player.name}" class="avatar"></label>
+      </div>
+    `).join('');
 
-        const playersSnapshot = await getDocs(collection(db, 'players'));
-        const players = playersSnapshot.docs.map(doc => doc.data());
-
-        const playerMap = players.reduce((map, player) => {
-          map[player.name] = player.avatarUrl || "";
-          return map;
-        }, {});
-
-        const sortedPlayers = Object.entries(scores)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 3)
-          .map(([name]) => ({ name, avatarUrl: playerMap[name] || "" }));
-
-        const winnerRadioContainer = document.querySelector('#winnerRadio .avatar-container');
-        const loserRadioContainer = document.querySelector('#loserRadio .avatar-container');
-        winnerRadioContainer.innerHTML = sortedPlayers.map((player, index) => `
-          <div class="radio-item">
-            <input type="radio" id="winner${index}" name="winner" value="${player.name}">
-            <label for="winner${index}"><img src="${player.avatarUrl}" alt="${player.name}" class="avatar"></label>
-          </div>
-        `).join('');
-        loserRadioContainer.innerHTML = sortedPlayers.map((player, index) => `
-          <div class="radio-item">
-            <input type="radio" id="loser${index}" name="loser" value="${player.name}">
-            <label for="loser${index}"><img src="${player.avatarUrl}" alt="${player.name}" class="avatar"></label>
-          </div>
-        `).join('');
-
-        // Add event listeners for dynamic styling
-        document.querySelectorAll('input[name="winner"]').forEach(radio => {
-          radio.addEventListener('change', () => {
-            const avatars = document.querySelectorAll('#winnerRadio .radio-item .avatar');
-            avatars.forEach(avatar => {
-              const input = avatar.parentElement.previousElementSibling;
-              if (input.checked) {
-                avatar.style.borderColor = '#28a745';
-                avatar.style.opacity = '1';
-                avatar.style.filter = 'none';
-              } else {
-                avatar.style.borderColor = '#ccc';
-                avatar.style.opacity = '0.3';
-                avatar.style.filter = 'grayscale(100%)';
-              }
-            });
-          });
+    document.querySelectorAll('input[name="winner"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        const avatars = document.querySelectorAll('#winnerRadio .radio-item .avatar');
+        avatars.forEach(avatar => {
+          const input = avatar.parentElement.previousElementSibling;
+          if (input.checked) {
+            avatar.style.borderColor = '#28a745';
+            avatar.style.opacity = '1';
+            avatar.style.filter = 'none';
+          } else {
+            avatar.style.borderColor = '#ccc';
+            avatar.style.opacity = '0.3';
+            avatar.style.filter = 'grayscale(100%)';
+          }
         });
+      });
+    });
 
-        document.querySelectorAll('input[name="loser"]').forEach(radio => {
-          radio.addEventListener('change', () => {
-            const avatars = document.querySelectorAll('#loserRadio .radio-item .avatar');
-            avatars.forEach(avatar => {
-              const input = avatar.parentElement.previousElementSibling;
-              if (input.checked) {
-                avatar.style.borderColor = '#dc3545';
-                avatar.style.opacity = '1';
-                avatar.style.filter = 'none';
-              } else {
-                avatar.style.borderColor = '#ccc';
-                avatar.style.opacity = '0.3';
-                avatar.style.filter = 'grayscale(100%)';
-              }
-            });
-          });
+    document.querySelectorAll('input[name="loser"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        const avatars = document.querySelectorAll('#loserRadio .radio-item .avatar');
+        avatars.forEach(avatar => {
+          const input = avatar.parentElement.previousElementSibling;
+          if (input.checked) {
+            avatar.style.borderColor = '#dc3545';
+            avatar.style.opacity = '1';
+            avatar.style.filter = 'none';
+          } else {
+            avatar.style.borderColor = '#ccc';
+            avatar.style.opacity = '0.3';
+            avatar.style.filter = 'grayscale(100%)';
+          }
         });
-      } catch (error) {
-        console.error("Error updating radio buttons:", error.message);
-        const defaultPlayers = fallbackPodium.map(p => ({ name: p.name, avatarUrl: p.avatarUrl || "" }));
-        const winnerRadioContainer = document.querySelector('#winnerRadio .avatar-container');
-        const loserRadioContainer = document.querySelector('#loserRadio .avatar-container');
-        winnerRadioContainer.innerHTML = defaultPlayers.map((player, index) => `
-          <div class="radio-item">
-            <input type="radio" id="winner${index}" name="winner" value="${player.name}">
-            <label for="winner${index}"><img src="${player.avatarUrl}" alt="${player.name}" class="avatar"></label>
-          </div>
-        `).join('');
-        loserRadioContainer.innerHTML = defaultPlayers.map((player, index) => `
-          <div class="radio-item">
-            <input type="radio" id="loser${index}" name="loser" value="${player.name}">
-            <label for="loser${index}"><img src="${player.avatarUrl}" alt="${player.name}" class="avatar"></label>
-          </div>
-        `).join('');
-
-        document.querySelectorAll('input[name="winner"]').forEach(radio => {
-          radio.addEventListener('change', () => {
-            const avatars = document.querySelectorAll('#winnerRadio .radio-item .avatar');
-            avatars.forEach(avatar => {
-              const input = avatar.parentElement.previousElementSibling;
-              if (input.checked) {
-                avatar.style.borderColor = '#28a745';
-                avatar.style.opacity = '1';
-                avatar.style.filter = 'none';
-              } else {
-                avatar.style.borderColor = '#ccc';
-                avatar.style.opacity = '0.3';
-                avatar.style.filter = 'grayscale(100%)';
-              }
-            });
-          });
-        });
-
-        document.querySelectorAll('input[name="loser"]').forEach(radio => {
-          radio.addEventListener('change', () => {
-            const avatars = document.querySelectorAll('#loserRadio .radio-item .avatar');
-            avatars.forEach(avatar => {
-              const input = avatar.parentElement.previousElementSibling;
-              if (input.checked) {
-                avatar.style.borderColor = '#dc3545';
-                avatar.style.opacity = '1';
-                avatar.style.filter = 'none';
-              } else {
-                avatar.style.borderColor = '#ccc';
-                avatar.style.opacity = '0.3';
-                avatar.style.filter = 'grayscale(100%)';
-              }
-            });
-          });
-        });
-      }
-    }
+      });
+    });
+  }
+}
 
     async function updatePodium(filter = 'all') {
       try {
